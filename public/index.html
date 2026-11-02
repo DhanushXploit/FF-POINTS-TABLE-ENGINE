@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Points Table Engine</title>
+<style>
+:root{--bg:#0a1128;--bg2:#101a3d;--card:#131f47;--line:#26356b;--txt:#eef1ff;--mut:#9aa7d4;--org:#ff7a00;--org2:#ffa040;--gold:#ffd34d;--bad:#ff5d6c;--ok:#39d98a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{position:sticky;top:0;z-index:5;background:var(--bg2);border-bottom:2px solid var(--org);padding:10px 14px;display:flex;align-items:center;gap:10px}
+header .logo{font-weight:900;font-size:19px;letter-spacing:.4px}header .logo span{color:var(--org)}
+header .sp{flex:1}
+main{max-width:860px;margin:0 auto;padding:14px 12px 60px}
+button,.btn{background:var(--org);color:#16100a;border:0;border-radius:10px;padding:12px 16px;font-weight:800;font-size:15px;cursor:pointer;min-height:48px}
+button.sec,.btn.sec{background:var(--card);color:var(--txt);border:1px solid var(--line)}
+button.danger{background:#3a1420;color:#ff8b96;border:1px solid #6e2432}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.small{min-height:38px;padding:7px 12px;font-size:13px}
+input,select,textarea{background:#0c1430;color:var(--txt);border:1px solid var(--line);border-radius:9px;padding:11px;font-size:16px;width:100%;min-height:48px}
+textarea{min-height:70px}
+label{font-size:13px;color:var(--mut);display:block;margin:10px 0 5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin:12px 0}
+.row{display:flex;gap:9px;align-items:center;flex-wrap:wrap}
+.grow{flex:1}.mut{color:var(--mut)}.small{font-size:13px}.tiny{font-size:12px}
+.badge{display:inline-block;background:var(--bg2);border:1px solid var(--line);color:var(--org2);border-radius:999px;padding:2px 9px;font-size:12px;font-weight:700}
+.badge.ok{color:var(--ok)}.badge.bad{color:var(--bad)}
+h1{font-size:21px;margin:8px 0}h2{font-size:17px;margin:14px 0 6px}h3{font-size:15px;margin:10px 0 6px}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 6px;border-bottom:1px solid var(--line);text-align:right}
+th{color:var(--mut);font-size:12px;text-transform:uppercase}
+td.l,th.l{text-align:left}
+tr.top td{color:var(--gold);font-weight:800}
+.scroll{overflow-x:auto}
+.tabs{display:flex;gap:7px;margin:12px 0;flex-wrap:wrap}
+.tabs button{background:var(--card);color:var(--mut);border:1px solid var(--line);min-height:42px;padding:8px 14px}
+.tabs button.on{background:var(--org);color:#16100a}
+.kill{width:64px!important;min-height:44px;text-align:center;padding:6px}
+.rankbox{font-weight:900;font-size:19px;color:var(--org2);min-width:34px}
+.warn{background:#3a2a10;border:1px solid #8a6a1d;color:#ffd98a;border-radius:10px;padding:10px;margin:8px 0;font-size:14px}
+.err{background:#3a1420;border:1px solid #6e2432;color:#ffb3ba;border-radius:10px;padding:10px;margin:8px 0;font-size:14px}
+.modalwrap{position:fixed;inset:0;background:rgba(3,6,18,.8);display:flex;align-items:flex-end;justify-content:center;z-index:20}
+.modal{background:var(--bg2);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:18px;border-top:3px solid var(--org)}
+img.shot{max-width:100%;border-radius:10px;border:1px solid var(--line)}
+.krow{display:flex;gap:7px;align-items:center;margin:6px 0;flex-wrap:wrap}
+.krow .pname{flex:1;min-width:110px;font-size:14px}
+a{color:var(--org2)}
+.posterPrev img{max-width:100%;border:1px solid var(--line);border-radius:12px}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">POINTS<span>TABLE</span> ENGINE</div>
+  <div class="sp"></div>
+  <span id="authState" class="badge"></span>
+  <button id="authBtn" class="sec small" type="button">Admin login</button>
+</header>
+<main id="app"></main>
+<div id="modalRoot"></div>
+
+<script type="module">
+import { DEFAULT_PLACEMENT, PLAYERS_PER_MODE, placementPointsFor, rowTotals, computeMatchResults, computeStandings, topFraggers } from "./scoring.js";
+
+const SEED = {"tournament": {"name": "FFISCIRMS", "game": "ffindia", "mode": "squad"}, "config": {"killPoints": 1, "placementPoints": [12, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 0], "tiebreak": ["totalPts", "killPts", "booyahs", "latestBestRank"]}, "teams": [{"slot": 1, "name": "MIDDLE CLASS", "players": ["MCS-MADHAN25", "GK.CR7", "MCS-KISHORE28", "TGB BIGIL"]}, {"slot": 2, "name": "REVEN ES", "players": ["RS DANGER", "RS WHITE", "RS VISHAL", "VASANTH 00"]}, {"slot": 3, "name": "TAMIL GAMING", "players": ["MANO", "SRIRAM", "ASHWIN", "TG KOMBAN"]}, {"slot": 4, "name": "MISTY", "players": ["MT MADHU", "MT NAVEEN", "JAGAN.OP", "MT HARISH"]}, {"slot": 5, "name": "TEAM POISON", "players": ["MEET NAVEEN", "TN SANJAY", "PRATHEEP", "ABINESH"]}, {"slot": 6, "name": "MID CLAW", "players": ["MCW-HARI", "MCW-HAWK", "BW.FLASH", "MCW.PARTHA"]}, {"slot": 7, "name": "MIT FINGER", "players": ["MF MITHUN333", "DARK LORD", "TAMILN BHUVI", "MF BLACK-999"]}, {"slot": 8, "name": "RULE BREAKERS", "players": ["RBZ BIRIYANI", "ROYAL MD", "MARANAVASAL", "BK OBAMA"]}, {"slot": 9, "name": "FFBLOODS", "players": ["BADBOY YT", "FFB SANDY", "FFB ARUN", "FFB XLR8"]}, {"slot": 10, "name": "DEVIL EATERS", "players": ["AG VASTHU", "DE GAAMA", "THE EVIL SR", "DE MATHI TN"]}, {"slot": 11, "name": "BLOOD PRONE", "players": ["BP PIRATE 31", "BP MATHAN 33", "BP-ROTRIX-CR", "JSW SINGAM"]}], "matches": [{"number": 1, "source": "screenshot", "status": "confirmed", "rows": [{"rank": 1, "team": "REVEN ES", "players": [{"player": "RS DANGER", "kills": 1}, {"player": "RS WHITE", "kills": 5}, {"player": "RS VISHAL", "kills": 1}, {"player": "VASANTH 00", "kills": 1}]}, {"rank": 2, "team": "TEAM POISON", "players": [{"player": "MEET NAVEEN", "kills": 2}, {"player": "TN SANJAY", "kills": 1}, {"player": "PRATHEEP", "kills": 0}, {"player": "ABINESH", "kills": 6}]}, {"rank": 3, "team": "MIDDLE CLASS", "players": [{"player": "MCS-MADHAN25", "kills": 2}, {"player": "GK.CR7", "kills": 3}, {"player": "MCS-KISHORE28", "kills": 0}, {"player": "TGB BIGIL", "kills": 1}]}, {"rank": 4, "team": "MID CLAW", "players": [{"player": "MCW-HARI", "kills": 1}, {"player": "MCW-HAWK", "kills": 1}, {"player": "BW.FLASH", "kills": 0}, {"player": "MCW.PARTHA", "kills": 0}]}, {"rank": 5, "team": "TAMIL GAMING", "players": [{"player": "MANO", "kills": 0}, {"player": "SRIRAM", "kills": 0}, {"player": "ASHWIN", "kills": 0}, {"player": "TG KOMBAN", "kills": 1}]}, {"rank": 6, "team": "MIT FINGER", "players": [{"player": "MF MITHUN333", "kills": 0}, {"player": "DARK LORD", "kills": 1}, {"player": "TAMILN BHUVI", "kills": 2}, {"player": "MF BLACK-999", "kills": 2}]}, {"rank": 7, "team": "RULE BREAKERS", "players": [{"player": "RBZ BIRIYANI", "kills": 3}, {"player": "ROYAL MD", "kills": 1}, {"player": "MARANAVASAL", "kills": 0}, {"player": "BK OBAMA", "kills": 0}]}, {"rank": 8, "team": "MISTY", "players": [{"player": "MT MADHU", "kills": 1}, {"player": "MT NAVEEN", "kills": 2}, {"player": "JAGAN.OP", "kills": 1}, {"player": "MT HARISH", "kills": 0}]}, {"rank": 9, "team": "FFBLOODS", "players": [{"player": "BADBOY YT", "kills": 2}, {"player": "FFB SANDY", "kills": 0}, {"player": "FFB ARUN", "kills": 0}, {"player": "FFB XLR8", "kills": 0}]}, {"rank": 10, "team": "DEVIL EATERS", "players": [{"player": "AG VASTHU", "kills": 0}, {"player": "DE GAAMA", "kills": 0}, {"player": "THE EVIL SR", "kills": 0}, {"player": "DE MATHI TN", "kills": 0}]}, {"rank": 11, "team": "BLOOD PRONE", "players": [{"player": "BP PIRATE 31", "kills": 0}, {"player": "BP MATHAN 33", "kills": 0}, {"player": "BP-ROTRIX-CR", "kills": 0}, {"player": "JSW SINGAM", "kills": 0}]}]}]};
+const LS_KEY = "pte-v1-data";
+const SS_KEY = "pte-v1-session";
+let memAuthed = sessionStorage.getItem(SS_KEY) === "1";
+
+const uid = (p) => p + Math.random().toString(36).slice(2, 9);
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const clone = (o) => JSON.parse(JSON.stringify(o));
+
+function buildSeedData() {
+  const t = {
+    id: "t-seeded", name: SEED.tournament.name, game: SEED.tournament.game, mode: SEED.tournament.mode,
+    config: { killPoints: SEED.config.killPoints, placementPoints: [...SEED.config.placementPoints] },
+    teams: SEED.teams.map((tm) => ({ id: "team-" + tm.slot, slot: tm.slot, name: tm.name, players: [...tm.players] })),
+    matches: [],
+  };
+  for (const m of SEED.matches) {
+    const match = { id: uid("m"), number: m.number, status: m.status, source: m.source, image: null, lineup: [], rows: [], entries: {} };
+    match.lineup = t.teams.map((tm) => ({ teamId: tm.id, name: tm.name, slot: tm.slot, players: [...tm.players], in: true }));
+    for (const r of m.rows) {
+      const team = t.teams.find((x) => x.name === r.team);
+      if (!team) continue;
+      match.rows.push({ rank: r.rank, teamId: team.id, teamName: team.name, players: r.players.map((p) => p.player), kills: r.players.map((p) => p.kills) });
+    }
+    match.entries = entriesFromRows(match);
+    t.matches.push(match);
+  }
+  return { version: 1, passcodeHash: null, tournaments: [t] };
+}
+function entriesFromRows(match) {
+  const e = {};
+  for (const lu of match.lineup) e[lu.teamId] = { rank: null, kills: lu.players.map(() => 0) };
+  for (const r of match.rows) if (e[r.teamId]) e[r.teamId] = { rank: r.rank, kills: [...r.kills] };
+  return e;
+}
+function loadDB() {
+  try { const raw = localStorage.getItem(LS_KEY); if (raw) { const d = JSON.parse(raw); if (d && d.version === 1) return d; } } catch (e) {}
+  const d = buildSeedData(); localStorage.setItem(LS_KEY, JSON.stringify(d)); return d;
+}
+let DB = loadDB();
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
+
+// ---------- auth (device passcode for this browser copy) ----------
+async function sha256(text) {
+  if (crypto?.subtle) {
+    const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode("pte:" + text));
+    return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+  }
+  let h = 0; for (let i = 0; i < text.length; i++) h = (h * 31 + text.charCodeAt(i)) >>> 0; // fallback only where SubtleCrypto is unavailable
+  return "weak-" + h.toString(16);
+}
+const isAuthed = () => memAuthed;
+function setAuthed(v) { memAuthed = v; if (v) sessionStorage.setItem(SS_KEY, "1"); else sessionStorage.removeItem(SS_KEY); renderAuth(); }
+function renderAuth() {
+  document.getElementById("authState").textContent = isAuthed() ? "Admin" : "Viewing only";
+  document.getElementById("authBtn").textContent = isAuthed() ? "Logout" : "Admin login";
+}
+document.getElementById("authBtn").onclick = () => { if (isAuthed()) { setAuthed(false); render(); } else openAuth(); };
+function ensureAdmin() { if (isAuthed()) return true; openAuth(); return false; }
+function openAuth() {
+  const first = !DB.passcodeHash;
+  document.getElementById("modalRoot").innerHTML = `
+  <div class="modalwrap"><div class="modal">
+    <h2>${first ? "Set admin passcode" : "Admin login"}</h2>
+    <p class="small mut">${first ? "Pick a passcode (min 4 characters) for this browser copy. Only a hash is stored on this device — it is a device passcode, not an online account." : "Enter the admin passcode for this browser copy."}</p>
+    <label>Passcode</label><input id="pc" type="password" autocomplete="current-password">
+    <div id="pcErr"></div>
+    <div class="row" style="margin-top:12px"><button id="pcGo" class="grow">${first ? "Set passcode & log in" : "Log in"}</button><button id="pcCancel" class="sec">Cancel</button></div>
+  </div></div>`;
+  const close = () => document.getElementById("modalRoot").innerHTML = "";
+  document.getElementById("pcCancel").onclick = close;
+  document.getElementById("pcGo").onclick = async () => {
+    const v = document.getElementById("pc").value;
+    if (v.length < 4) { document.getElementById("pcErr").innerHTML = `<div class="err">Passcode must be at least 4 characters.</div>`; return; }
+    const h = await sha256(v);
+    if (first) { DB.passcodeHash = h; save(); setAuthed(true); close(); render(); }
+    else if (h === DB.passcodeHash) { setAuthed(true); close(); render(); }
+    else document.getElementById("pcErr").innerHTML = `<div class="err">Wrong passcode.</div>`;
+  };
+}
+
+// ---------- UI state / helpers ----------
+let ui = { tournamentId: null, tab: "table", matchId: null, layout: "placement", showReview: false, filter: "overall", expanded: null, posterUrl: null };
+const GAME_LABEL = { ffmax: "Free Fire MAX", ffindia: "Free Fire India" };
+const MODE_LABEL = { squad: "Squad", duo: "Duo", solo: "Solo" };
+const app = () => document.getElementById("app");
+const tourney = () => DB.tournaments.find((t) => t.id === ui.tournamentId) || null;
+const teamName = (t, id) => (t.teams.find((x) => x.id === id) || {}).name || "—";
+function standingsTeams(t) {
+  const map = new Map(t.teams.map((x) => [x.id, { id: x.id, name: x.name }]));
+  for (const m of t.matches) for (const r of m.rows) if (!map.has(r.teamId)) map.set(r.teamId, { id: r.teamId, name: r.teamName || r.teamId });
+  return [...map.values()];
+}
+function currentStandings(t) {
+  const only = ui.filter === "overall" ? null : Number(ui.filter);
+  return computeStandings(standingsTeams(t), t.matches, t.config, only);
+}
+function download(name, blob) { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+
+function render() {
+  renderAuth();
+  const t = tourney();
+  if (!t) return renderTournaments();
+  if (ui.matchId) return renderMatchEditor(t);
+  renderTournament(t);
+}
+
+// ---------- tournaments ----------
+function renderTournaments() {
+  app().innerHTML = `
+    <h1>Tournaments</h1>
+    ${DB.tournaments.length === 0 ? `<div class="card mut">No tournaments yet.</div>` : ""}
+    ${DB.tournaments.map((t) => `<div class="card row"><div class="grow"><b>${esc(t.name)}</b><br>
+      <span class="badge">${esc(GAME_LABEL[t.game] || t.game)}</span> <span class="badge">${esc(MODE_LABEL[t.mode] || t.mode)}</span>
+      <span class="badge">${t.teams.length} teams</span> <span class="badge">${t.matches.filter((m) => m.status === "confirmed").length} confirmed match(es)</span></div>
+      <button data-open="${t.id}">Open</button></div>`).join("")}
+    <div class="card"><h3>Create tournament</h3>
+      <label>Name</label><input id="ntName" placeholder="Tournament name">
+      <label>Game</label><select id="ntGame"><option value="ffmax">Free Fire MAX</option><option value="ffindia">Free Fire India</option></select>
+      <label>Mode</label><select id="ntMode"><option value="squad">Squad (4 players)</option><option value="duo">Duo (2 players)</option><option value="solo">Solo (1 player)</option></select>
+      <div style="margin-top:12px"><button id="ntCreate" style="width:100%">Create tournament</button></div>
+      <p class="tiny mut">Creating, editing and deleting need admin login. Viewing the points table does not.</p></div>`;
+  app().querySelectorAll("[data-open]").forEach((b) => b.onclick = () => { ui.tournamentId = b.dataset.open; ui.tab = "table"; ui.filter = "overall"; render(); });
+  document.getElementById("ntCreate").onclick = () => {
+    if (!ensureAdmin()) return;
+    const name = document.getElementById("ntName").value.trim(); if (!name) return alert("Enter a tournament name.");
+    const mode = document.getElementById("ntMode").value;
+    const t = { id: uid("t"), name, game: document.getElementById("ntGame").value, mode, config: { killPoints: 1, placementPoints: [...DEFAULT_PLACEMENT[mode]] }, teams: [], matches: [] };
+    DB.tournaments.push(t); save(); ui.tournamentId = t.id; ui.tab = "registry"; render();
+  };
+}
+
+// ---------- tournament shell ----------
+function renderTournament(t) {
+  let body = "";
+  if (ui.tab === "table") body = tableTab(t);
+  else if (ui.tab === "matches") body = matchesTab(t);
+  else if (ui.tab === "registry") body = registryTab(t);
+  else if (ui.tab === "settings") body = settingsTab(t);
+  app().innerHTML = `
+    <button class="sec small" id="backBtn">← All tournaments</button>
+    <h1>${esc(t.name)}</h1>
+    <span class="badge">${esc(GAME_LABEL[t.game] || t.game)}</span> <span class="badge">${esc(MODE_LABEL[t.mode] || t.mode)}</span>
+    <div class="tabs">${["table", "matches", "registry", "settings"].map((x) => `<button data-tab="${x}" class="${ui.tab === x ? "on" : ""}">${x[0].toUpperCase() + x.slice(1)}</button>`).join("")}</div>
+    ${body}`;
+  document.getElementById("backBtn").onclick = () => { ui.tournamentId = null; ui.matchId = null; render(); };
+  app().querySelectorAll("[data-tab]").forEach((b) => b.onclick = () => { ui.tab = b.dataset.tab; render(); });
+  ({ table: bindTable, matches: bindMatches, registry: bindRegistry, settings: bindSettings })[ui.tab](t);
+}
+
+// ---------- points table tab ----------
+function tableTab(t) {
+  const st = currentStandings(t);
+  const frag = topFraggers(t.matches.map((m) => ({ ...m, rows: m.rows.map((r) => ({ ...r, teamName: r.teamName || teamName(t, r.teamId) })) })), 5);
+  const matchNums = t.matches.filter((m) => m.status === "confirmed").map((m) => m.number);
+  return `
+  <label>Show</label><select id="flt"><option value="overall" ${ui.filter === "overall" ? "selected" : ""}>Overall</option>
+    ${matchNums.map((n) => `<option value="${n}" ${String(n) === ui.filter ? "selected" : ""}>Match ${n} only</option>`).join("")}</select>
+  <div class="card"><h3>Top 3 teams</h3>${st.slice(0, 3).map((s, i) => `<div class="row"><span class="rankbox">#${i + 1}</span><span class="grow">${esc(s.name)}</span><b>${s.totalPts} pts</b></div>`).join("") || `<span class="mut">No confirmed matches yet.</span>`}</div>
+  <div class="card scroll"><table><tr><th class="l">Rank</th><th class="l">Team</th><th>Matches</th><th>Booyahs</th><th>Placement Pts</th><th>Kill Pts</th><th>Total Pts</th></tr>
+  ${st.map((s) => `<tr class="${s.standing <= 3 ? "top" : ""}" data-exp="${s.teamId}" style="cursor:pointer"><td class="l">${s.standing}</td><td class="l">${esc(s.name)}</td><td>${s.matches}</td><td>${s.booyahs}</td><td>${s.placementPts}</td><td>${s.killPts}</td><td><b>${s.totalPts}</b></td></tr>
+    ${ui.expanded === s.teamId ? `<tr><td colspan="7" class="l small">${s.perMatch.length ? s.perMatch.map((p) => `Match ${p.matchNumber}: finished #${p.rank} — ${p.placementPts} placement + ${p.killPts} kills = <b>${p.total}</b>`).join("<br>") : "No confirmed matches."}</td></tr>` : ""}`).join("")}
+  </table><p class="tiny mut">Tap a team row for its per-match breakdown. Order: total points, then kills, then Booyahs — never slot order.</p></div>
+  <div class="card"><h3>Top 5 fraggers</h3>${frag.map((f, i) => `<div class="row"><span class="rankbox">#${i + 1}</span><span class="grow">${esc(f.player)} <span class="mut small">(${esc(f.team)})</span></span><b>${f.kills} kills</b></div>`).join("") || `<span class="mut">No confirmed matches yet.</span>`}</div>
+  <button id="dlImg" style="width:100%">Download points table as image</button>
+  <div id="posterPrev" class="posterPrev" style="margin-top:12px">${ui.posterUrl ? `<img src="${ui.posterUrl}" alt="Points table poster"><div class="row" style="margin-top:8px"><button id="pvDl" class="grow">Download image</button><button id="pvShare" class="sec grow">Share image</button></div>` : ""}</div>
+  <div class="row" style="margin-top:10px"><button id="dlCsv" class="sec grow">CSV export</button><button id="dlJson" class="sec grow">JSON backup</button><button id="impJson" class="sec grow">Import backup</button></div>
+  <input type="file" id="impFile" accept="application/json" style="display:none">`;
+}
+function bindTable(t) {
+  document.getElementById("flt").onchange = (e) => { ui.filter = e.target.value; ui.expanded = null; render(); };
+  app().querySelectorAll("[data-exp]").forEach((r) => r.onclick = () => { ui.expanded = ui.expanded === r.dataset.exp ? null : r.dataset.exp; render(); });
+  document.getElementById("dlCsv").onclick = () => {
+    const st = currentStandings(t);
+    const csv = ["Rank,Team,Matches,Booyahs,Placement Pts,Kill Pts,Total Pts", ...st.map((s) => [s.standing, '"' + s.name.replace(/"/g, '""') + '"', s.matches, s.booyahs, s.placementPts, s.killPts, s.totalPts].join(","))].join("\n");
+    download(t.name.replace(/\s+/g, "_") + "_points.csv", new Blob([csv], { type: "text/csv" }));
+  };
+  document.getElementById("dlJson").onclick = () => download("points-table-backup.json", new Blob([JSON.stringify({ tournaments: DB.tournaments }, null, 2)], { type: "application/json" }));
+  const impFile = document.getElementById("impFile");
+  document.getElementById("impJson").onclick = () => { if (ensureAdmin()) impFile.click(); };
+  impFile.onchange = () => { const f = impFile.files[0]; if (!f) return; f.text().then((txt) => { try { const d = JSON.parse(txt); if (!Array.isArray(d.tournaments)) throw 0; DB.tournaments = d.tournaments; save(); ui.tournamentId = null; render(); } catch (e) { alert("That file is not a valid backup."); } }); };
+  document.getElementById("dlImg").onclick = () => { ui.posterUrl = makePoster(t); render(); };
+  const pvDl = document.getElementById("pvDl"); if (pvDl) pvDl.onclick = async () => { const b = await (await fetch(ui.posterUrl)).blob(); download(t.name.replace(/\s+/g, "_") + "_points.png", b); };
+  const pvShare = document.getElementById("pvShare"); if (pvShare) pvShare.onclick = async () => { try { const b = await (await fetch(ui.posterUrl)).blob(); const file = new File([b], "points-table.png", { type: "image/png" }); if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file] }); else alert("Sharing is not supported here — use Download image."); } catch (e) {} };
+}
+function makePoster(t) {
+  const st = currentStandings(t);
+  const W = 900, rowH = 44, H = 150 + Math.max(1, st.length) * rowH + 30;
+  const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
+  x.fillStyle = "#0a1128"; x.fillRect(0, 0, W, H);
+  x.fillStyle = "#ff7a00"; x.fillRect(0, 0, W, 86);
+  x.fillStyle = "#16100a"; x.font = "900 34px system-ui,sans-serif"; x.fillText(t.name, 28, 40);
+  x.font = "700 19px system-ui,sans-serif"; x.fillText((GAME_LABEL[t.game] || "") + " • " + (MODE_LABEL[t.mode] || "") + " • Points Table", 28, 68);
+  x.fillStyle = "#9aa7d4"; x.font = "700 16px system-ui,sans-serif";
+  const cols = [[28, "Rank"], [100, "Team"], [520, "Matches"], [620, "Booyahs"], [710, "Kill Pts"], [800, "Total"]];
+  cols.forEach(([cx, s]) => x.fillText(s, cx, 118));
+  st.forEach((s, i) => {
+    const y = 150 + i * rowH;
+    if (i < 3) { x.fillStyle = "#ffd34d"; } else { x.fillStyle = "#eef1ff"; }
+    x.font = (i < 3 ? "900" : "600") + " 20px system-ui,sans-serif";
+    x.fillText(String(s.standing), 28, y); x.fillText(s.name, 100, y);
+    x.fillText(String(s.matches), 520, y); x.fillText(String(s.booyahs), 620, y); x.fillText(String(s.killPts), 710, y); x.fillText(String(s.totalPts), 800, y);
+    x.fillStyle = "#26356b"; x.fillRect(28, y + 10, W - 56, 1);
+  });
+  if (!st.length) { x.fillStyle = "#eef1ff"; x.font = "600 20px system-ui,sans-serif"; x.fillText("No confirmed matches yet.", 28, 160); }
+  return c.toDataURL("image/png");
+}
+
+// ---------- matches list ----------
+function matchesTab(t) {
+  return `${t.matches.map((m) => `<div class="card row"><div class="grow"><b>Match ${m.number}</b>
+    <span class="badge ${m.status === "confirmed" ? "ok" : ""}">${m.status}</span> <span class="badge">${esc(m.source)}</span></div>
+    <button data-openm="${m.id}">${m.status === "confirmed" ? "View / edit" : "Enter results"}</button></div>`).join("") || `<div class="card mut">No matches yet. Create Match 1 to start.</div>`}
+  <button id="newMatch" style="width:100%">+ Create Match ${t.matches.length + 1}</button>
+  <p class="tiny mut">Nothing counts toward the points table until a match is confirmed.</p>`;
+}
+function bindMatches(t) {
+  app().querySelectorAll("[data-openm]").forEach((b) => b.onclick = () => { ui.matchId = b.dataset.openm; ui.showReview = false; render(); });
+  document.getElementById("newMatch").onclick = () => {
+    if (!ensureAdmin()) return;
+    if (!t.teams.length) return alert("Add teams in the Registry first.");
+    const m = { id: uid("m"), number: t.matches.length + 1, status: "draft", source: "manual", image: null, lineup: [], rows: [], entries: {} };
+    m.lineup = t.teams.map((tm) => ({ teamId: tm.id, name: tm.name, slot: tm.slot, players: [...tm.players], in: true }));
+    m.entries = entriesFromRows(m);
+    t.matches.push(m); save(); ui.matchId = m.id; render();
+  };
+}
+
+// ---------- registry ----------
+function registryTab(t) {
+  const n = PLAYERS_PER_MODE[t.mode];
+  return `
+  ${t.teams.map((tm) => `<div class="card"><div class="row"><b class="grow">Slot ${tm.slot} — ${esc(tm.name)}</b>
+    ${isAuthed() ? `<button class="sec small" data-edt="${tm.id}">Edit</button><button class="danger small" data-delt="${tm.id}">Delete</button>` : ""}</div>
+    <div class="small mut">${tm.players.map(esc).join(" • ")}</div>
+    <div id="ed-${tm.id}"></div></div>`).join("") || `<div class="card mut">No teams yet — add the first team below.</div>`}
+  <div class="card"><h3>Add team</h3>
+    <label>Team name</label><input id="tmName">
+    <label>Slot number</label><input id="tmSlot" type="number" inputmode="numeric" value="${t.teams.length + 1}">
+    <label>Players (${n} for ${esc(MODE_LABEL[t.mode])}, one per line)</label><textarea id="tmPlayers" placeholder="Player 1&#10;Player 2"></textarea>
+    <button id="tmAdd" style="width:100%;margin-top:10px">Add team</button></div>
+  <div class="card"><h3>Paste / CSV import</h3>
+    <p class="small mut">One team per line, in this format:<br><code>Team Name | player1, player2, player3, player4</code><br>Slots are assigned in order, continuing from the current teams.</p>
+    <textarea id="impText" placeholder="TEAM ALPHA | A1, A2, A3, A4&#10;TEAM BRAVO | B1, B2, B3, B4"></textarea>
+    <button id="impGo" class="sec" style="width:100%;margin-top:10px">Import teams</button></div>`;
+}
+function parsePlayers(text, n) { return text.split(/[\n,]/).map((s) => s.trim()).filter(Boolean).slice(0, n); }
+function bindRegistry(t) {
+  const n = PLAYERS_PER_MODE[t.mode];
+  document.getElementById("tmAdd").onclick = () => {
+    if (!ensureAdmin()) return;
+    const name = document.getElementById("tmName").value.trim(); const players = parsePlayers(document.getElementById("tmPlayers").value, n);
+    if (!name || players.length !== n) return alert(`Enter a team name and exactly ${n} player(s).`);
+    t.teams.push({ id: uid("team"), slot: Number(document.getElementById("tmSlot").value) || t.teams.length + 1, name, players }); save(); render();
+  };
+  document.getElementById("impGo").onclick = () => {
+    if (!ensureAdmin()) return;
+    let added = 0;
+    for (const line of document.getElementById("impText").value.split("\n")) {
+      const [nm, pl] = line.split("|"); if (!nm || !pl) continue;
+      const players = parsePlayers(pl, n); if (players.length !== n) continue;
+      t.teams.push({ id: uid("team"), slot: t.teams.length + 1, name: nm.trim(), players }); added++;
+    }
+    save(); alert(added ? `Imported ${added} team(s).` : "No valid lines found. Use: Team Name | player1, player2, ..."); render();
+  };
+  app().querySelectorAll("[data-delt]").forEach((b) => b.onclick = () => { if (!ensureAdmin()) return; if (confirm("Delete this team from the registry? Confirmed match rows keep their recorded names.")) { t.teams = t.teams.filter((x) => x.id !== b.dataset.delt); save(); render(); } });
+  app().querySelectorAll("[data-edt]").forEach((b) => b.onclick = () => {
+    if (!ensureAdmin()) return;
+    const tm = t.teams.find((x) => x.id === b.dataset.edt);
+    document.getElementById("ed-" + tm.id).innerHTML = `<label>Team name</label><input id="eName" value="${esc(tm.name)}">
+      <label>Slot</label><input id="eSlot" type="number" inputmode="numeric" value="${tm.slot}">
+      <label>Players (one per line)</label><textarea id="ePlayers">${tm.players.map(esc).join("\n")}</textarea>
+      <button id="eSave" style="margin-top:8px">Save team</button>`;
+    document.getElementById("eSave").onclick = () => {
+      const players = parsePlayers(document.getElementById("ePlayers").value, n);
+      if (players.length !== n) return alert(`Exactly ${n} player(s) needed.`);
+      tm.name = document.getElementById("eName").value.trim() || tm.name; tm.slot = Number(document.getElementById("eSlot").value) || tm.slot; tm.players = players; save(); render();
+    };
+  });
+}
+
+// ---------- settings ----------
+function settingsTab(t) {
+  return `<div class="card"><h3>Scoring (this tournament)</h3>
+    <label>Points per kill</label><input id="cfgKill" type="number" inputmode="numeric" value="${t.config.killPoints}">
+    <label>Placement points (comma-separated, 1st first)</label><textarea id="cfgPlace">${t.config.placementPoints.join(", ")}</textarea>
+    <button id="cfgSave" style="width:100%">Save scoring</button></div>
+  <div class="card"><h3>Change admin passcode</h3>
+    <label>Current passcode</label><input id="cpCur" type="password">
+    <label>New passcode (min 4 characters)</label><input id="cpNew" type="password">
+    <button id="cpGo" class="sec" style="width:100%">Change passcode</button>
+    <p class="tiny mut">This is a device passcode for this browser copy of the app, stored only as a hash on this device.</p></div>
+  <div class="card"><h3>Reset</h3>
+    <p class="small mut">Restore the original seeded tournament (FFISCIRMS with Match 1) and remove tournaments created in this copy. Your passcode is kept.</p>
+    <button id="resetSeed" class="danger" style="width:100%">Reset to seeded data</button></div>
+  <div class="card"><h3>Delete tournament</h3><button id="delT" class="danger" style="width:100%">Delete ${esc(t.name)}</button></div>`;
+}
+function bindSettings(t) {
+  document.getElementById("cfgSave").onclick = () => {
+    if (!ensureAdmin()) return;
+    const pts = document.getElementById("cfgPlace").value.split(",").map((s) => Number(s.trim())).filter((v) => !Number.isNaN(v));
+    if (!pts.length) return alert("Enter at least one placement value.");
+    t.config.killPoints = Math.max(0, Number(document.getElementById("cfgKill").value) || 0); t.config.placementPoints = pts; save(); alert("Scoring saved."); render();
+  };
+  document.getElementById("cpGo").onclick = async () => {
+    if (!ensureAdmin()) return;
+    const cur = await sha256(document.getElementById("cpCur").value); const nw = document.getElementById("cpNew").value;
+    if (cur !== DB.passcodeHash) return alert("Current passcode is wrong.");
+    if (nw.length < 4) return alert("New passcode must be at least 4 characters.");
+    DB.passcodeHash = await sha256(nw); save(); alert("Passcode changed.");
+  };
+  document.getElementById("resetSeed").onclick = () => {
+    if (!ensureAdmin()) return;
+    if (!confirm("Reset everything to the seeded FFISCIRMS data?")) return;
+    const hash = DB.passcodeHash; DB = buildSeedData(); DB.passcodeHash = hash; save(); ui.tournamentId = null; ui.matchId = null; render();
+  };
+  document.getElementById("delT").onclick = () => { if (!ensureAdmin()) return; if (confirm("Delete this tournament and all its matches?")) { DB.tournaments = DB.tournaments.filter((x) => x.id !== t.id); save(); ui.tournamentId = null; render(); } };
+}
+
+// ---------- match editor ----------
+function candidateRows(t, m) {
+  return m.lineup.filter((lu) => lu.in).map((lu) => {
+    const e = m.entries[lu.teamId] || { rank: null, kills: lu.players.map(() => 0) };
+    return { rank: e.rank, teamId: lu.teamId, teamName: lu.name, players: [...lu.players], kills: [...e.kills] };
+  });
+}
+function validateMatch(t, m) {
+  const errors = [], warnings = [];
+  const rows = candidateRows(t, m); const N = rows.length;
+  const seenRank = new Map();
+  for (const r of rows) {
+    if (r.rank == null || r.rank === "") { errors.push(`${r.teamName}: no placement entered.`); continue; }
+    if (!Number.isInteger(r.rank) || r.rank < 1 || r.rank > N) errors.push(`${r.teamName}: placement must be 1–${N}.`);
+    if (seenRank.has(r.rank)) errors.push(`Placement ${r.rank} is used by both ${seenRank.get(r.rank)} and ${r.teamName}.`);
+    seenRank.set(r.rank, r.teamName);
+    r.kills.forEach((k, i) => {
+      if (!Number.isInteger(k) || k < 0 || k > 30) errors.push(`${r.teamName} / ${r.players[i]}: kills must be a whole number 0–30.`);
+      else if (k > 20) warnings.push(`${r.teamName} / ${r.players[i]}: ${k} kills is unusually high — please double-check.`);
+    });
+  }
+  for (let r = 1; r <= N; r++) if (!seenRank.has(r)) errors.push(`Placement ${r} is missing.`);
+  return { errors, warnings, rows };
+}
+function reviewHTML(t, m) {
+  const v = validateMatch(t, m);
+  const results = computeMatchResults({ rows: v.rows.filter((r) => r.rank != null) }, t.config);
+  return `${v.errors.length ? `<div class="err"><b>Fix before confirming:</b><br>${v.errors.map(esc).join("<br>")}</div>` : ""}
+  ${v.warnings.length ? `<div class="warn">${v.warnings.map(esc).join("<br>")}</div>` : ""}
+  <div class="scroll"><table><tr><th class="l">Pts Pos</th><th class="l">Team</th><th>Finished</th><th>Kills</th><th>Placement Pts</th><th>Total</th></tr>
+  ${results.map((r, i) => `<tr><td class="l">${i + 1}</td><td class="l">${esc(r.teamName)}</td><td>#${r.rank}</td><td>${r.kills}</td><td>${r.placementPts}</td><td><b>${r.total}</b></td></tr>`).join("")}</table></div>
+  <button id="confirmBtn" style="width:100%;margin-top:10px" ${v.errors.length ? "disabled" : ""}>Confirm and calculate</button>
+  <p class="tiny mut">Nothing counts toward the points table until you confirm.</p>`;
+}
+function renderMatchEditor(t) {
+  const m = t.matches.find((x) => x.id === ui.matchId);
+  if (!m) { ui.matchId = null; return renderTournament(t); }
+  const inTeams = m.lineup.filter((lu) => lu.in);
+  let editor = "";
+  if (m.status === "confirmed") {
+    const results = computeMatchResults(m, t.config);
+    editor = `<div class="card"><h3>Confirmed results — in points order</h3>
+    <div class="scroll"><table><tr><th class="l">Pts Pos</th><th class="l">Team</th><th>Finished</th><th>Kills</th><th>Placement Pts</th><th>Total</th></tr>
+    ${results.map((r, i) => `<tr class="${i < 3 ? "top" : ""}"><td class="l">${i + 1}</td><td class="l">${esc(r.teamName || teamName(t, r.teamId))}</td><td>#${r.rank}</td><td>${r.kills}</td><td>${r.placementPts}</td><td><b>${r.total}</b></td></tr>`).join("")}</table></div>
+    <div class="row"><button id="reopenBtn" class="sec grow">Reopen to edit</button><button id="delMatch2" class="danger grow">Delete match</button></div></div>`;
+  } else {
+    const placementRows = [];
+    for (let rank = 1; rank <= inTeams.length; rank++) {
+      const assigned = inTeams.find((lu) => (m.entries[lu.teamId] || {}).rank === rank);
+      const options = inTeams.filter((lu) => { const r = (m.entries[lu.teamId] || {}).rank; return r == null || r === rank; });
+      placementRows.push(`<div class="card"><div class="row"><span class="rankbox">#${rank}</span>
+        <select data-rankteam="${rank}" class="grow"><option value="">— select team —</option>
+        ${options.map((lu) => `<option value="${lu.teamId}" ${assigned && assigned.teamId === lu.teamId ? "selected" : ""}>${esc(lu.name)}</option>`).join("")}</select>
+        <span class="badge" id="live-rank-${rank}">${assigned ? liveText(m, t, assigned.teamId, rank) : ""}</span></div>
+        ${assigned ? killInputs(m, assigned) : ""}</div>`);
+    }
+    const teamCards = inTeams.map((lu) => { const e = m.entries[lu.teamId] || { rank: null, kills: [] }; return `<div class="card"><div class="row"><b class="grow">${esc(lu.name)}</b><span class="badge" id="live-team-${lu.teamId}">${liveText(m, t, lu.teamId, e.rank)}</span></div>
+      <label>Placement (1–${inTeams.length})</label><input type="number" inputmode="numeric" min="1" max="${inTeams.length}" data-place="${lu.teamId}" value="${e.rank ?? ""}">${killInputs(m, lu)}</div>`; });
+    editor = `
+    <div class="card"><h3>Match lineup</h3>
+      ${m.lineup.map((lu) => `<div class="krow"><input type="checkbox" style="width:26px;min-height:26px" data-luin="${lu.teamId}" ${lu.in ? "checked" : ""}>
+        <b class="grow">${esc(lu.name)}</b></div>
+        ${lu.players.map((p, i) => `<div class="krow"><span class="mut small" style="min-width:70px">Player ${i + 1}</span><input data-luplayer="${lu.teamId}:${i}" value="${esc(p)}"></div>`).join("")}`).join("")}
+      <p class="tiny mut">Untick a no-show team, and edit player names for substitutes — this lineup is only for this match.</p></div>
+    <div class="card"><h3>Result screenshot (optional)</h3>
+      <input type="file" id="shotFile" accept="image/*">
+      ${m.image ? `<img class="shot" src="${m.image}" alt="Result screenshot" style="margin-top:10px"><button id="shotDel" class="sec small" style="margin-top:8px">Remove screenshot</button>` : ""}
+      <p class="small mut">Screenshots are stored with the match for reference. Automatic screenshot reading needs the Muse app or a future API key — this standalone copy does not read the image, so enter the numbers below (you are never blocked).</p></div>
+    <div class="row"><button data-layout="placement" class="${ui.layout === "placement" ? "" : "sec"} grow">By placement</button>
+      <button data-layout="team" class="${ui.layout === "team" ? "" : "sec"} grow">By team</button></div>
+    <div style="margin-top:10px">${ui.layout === "placement" ? placementRows.join("") : teamCards.join("")}</div>
+    <button id="reviewBtn" class="sec" style="width:100%">${ui.showReview ? "Refresh review" : "Review results"}</button>
+    <div id="reviewBox" style="margin-top:10px">${ui.showReview ? reviewHTML(t, m) : ""}</div>
+    <button id="delMatch" class="danger" style="width:100%;margin-top:14px">Delete this match</button>`;
+  }
+  app().innerHTML = `<button class="sec small" id="mBack">← Matches</button>
+    <h1>Match ${m.number} — ${esc(t.name)}</h1>
+    <span class="badge ${m.status === "confirmed" ? "ok" : ""}">${m.status}</span> <span class="badge">${esc(m.source)}</span>
+    ${editor}`;
+  bindMatchEditor(t, m);
+}
+function liveText(m, t, teamId, rank) {
+  const e = m.entries[teamId]; if (!e || rank == null) return "";
+  const tot = rowTotals({ rank, kills: e.kills }, t.config);
+  return `${tot.kills} kills • ${tot.total} pts`;
+}
+function killInputs(m, lu) {
+  const e = m.entries[lu.teamId] || { kills: lu.players.map(() => 0) };
+  return lu.players.map((p, i) => `<div class="krow"><span class="pname">${esc(p)}</span><span class="small mut">Kills</span>
+    <input class="kill" type="number" inputmode="numeric" min="0" max="30" data-kill="${lu.teamId}:${i}" value="${e.kills[i] ?? 0}"></div>`).join("");
+}
+function bindMatchEditor(t, m) {
+  document.getElementById("mBack").onclick = () => { ui.matchId = null; ui.tab = "matches"; render(); };
+  const reopen = document.getElementById("reopenBtn");
+  if (reopen) reopen.onclick = () => { if (!ensureAdmin()) return; m.status = "draft"; m.entries = entriesFromRows(m); save(); render(); };
+  const del2 = document.getElementById("delMatch2"); if (del2) del2.onclick = () => deleteMatch(t, m);
+  if (m.status === "confirmed") return;
+  app().querySelectorAll("[data-layout]").forEach((b) => b.onclick = () => { ui.layout = b.dataset.layout; ui.showReview = false; render(); });
+  app().querySelectorAll("[data-luin]").forEach((c) => c.onchange = () => { if (!ensureAdmin()) { render(); return; } const lu = m.lineup.find((x) => x.teamId === c.dataset.luin); lu.in = c.checked; if (lu.in && !m.entries[lu.teamId]) m.entries[lu.teamId] = { rank: null, kills: lu.players.map(() => 0) }; save(); render(); });
+  app().querySelectorAll("[data-luplayer]").forEach((inp) => inp.onchange = () => { const [tid, idx] = inp.dataset.luplayer.split(":"); const lu = m.lineup.find((x) => x.teamId === tid); lu.players[Number(idx)] = inp.value.trim() || lu.players[Number(idx)]; save(); });
+  app().querySelectorAll("[data-kill]").forEach((inp) => inp.oninput = () => {
+    const [tid, idx] = inp.dataset.kill.split(":"); const e = m.entries[tid]; if (!e) return;
+    e.kills[Number(idx)] = inp.value === "" ? 0 : Math.trunc(Number(inp.value));
+    save();
+    const lu = m.lineup.find((x) => x.teamId === tid);
+    const lr = document.getElementById("live-rank-" + e.rank); if (lr) lr.textContent = liveText(m, t, tid, e.rank);
+    const lt = document.getElementById("live-team-" + tid); if (lt) lt.textContent = liveText(m, t, tid, e.rank);
+    if (ui.showReview) document.getElementById("reviewBox").innerHTML = reviewHTML(t, m), bindConfirm(t, m);
+  });
+  app().querySelectorAll("[data-rankteam]").forEach((sel) => sel.onchange = () => {
+    if (!ensureAdmin()) { render(); return; }
+    const rank = Number(sel.dataset.rankteam);
+    for (const lu of m.lineup) if (m.entries[lu.teamId] && m.entries[lu.teamId].rank === rank) m.entries[lu.teamId].rank = null;
+    if (sel.value) m.entries[sel.value].rank = rank;
+    save(); render();
+  });
+  app().querySelectorAll("[data-place]").forEach((inp) => inp.onchange = () => {
+    const e = m.entries[inp.dataset.place]; const v = inp.value === "" ? null : Math.trunc(Number(inp.value));
+    e.rank = v; save(); if (ui.showReview) document.getElementById("reviewBox").innerHTML = reviewHTML(t, m), bindConfirm(t, m);
+  });
+  const sf = document.getElementById("shotFile");
+  if (sf) sf.onchange = () => { const f = sf.files[0]; if (!f) return; storeImage(f, (url) => { m.image = url; m.source = "mixed"; save(); render(); }); };
+  const sd = document.getElementById("shotDel"); if (sd) sd.onclick = () => { m.image = null; save(); render(); };
+  document.getElementById("reviewBtn").onclick = () => { ui.showReview = true; document.getElementById("reviewBox").innerHTML = reviewHTML(t, m); bindConfirm(t, m); };
+  if (ui.showReview) bindConfirm(t, m);
+  document.getElementById("delMatch").onclick = () => deleteMatch(t, m);
+}
+function bindConfirm(t, m) {
+  const b = document.getElementById("confirmBtn"); if (!b) return;
+  b.onclick = () => {
+    if (!ensureAdmin()) return;
+    const v = validateMatch(t, m); if (v.errors.length) return;
+    m.rows = v.rows.map((r) => ({ ...r })).sort((a, b) => a.rank - b.rank);
+    m.status = "confirmed"; if (m.image) m.source = "mixed";
+    save(); ui.tab = "table"; ui.matchId = null; ui.filter = "overall"; render();
+  };
+}
+function deleteMatch(t, m) {
+  if (!ensureAdmin()) return;
+  if (!confirm(`Delete Match ${m.number}? The points table will recalculate.`)) return;
+  t.matches = t.matches.filter((x) => x.id !== m.id);
+  t.matches.sort((a, b) => a.number - b.number).forEach((x, i) => x.number = i + 1);
+  save(); ui.matchId = null; ui.tab = "matches"; render();
+}
+function storeImage(file, cb) {
+  const url = URL.createObjectURL(file); const img = new Image();
+  img.onload = () => {
+    const scale = Math.min(1, 1200 / Math.max(img.width, img.height));
+    const c = document.createElement("canvas"); c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+    c.getContext("2d").drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url); cb(c.toDataURL("image/jpeg", 0.72));
+  };
+  img.onerror = () => { const r = new FileReader(); r.onload = () => cb(r.result); r.readAsDataURL(file); };
+  img.src = url;
+}
+
+render();
+</script>
+</body>
+</html>

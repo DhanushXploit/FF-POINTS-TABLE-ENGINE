@@ -1,0 +1,393 @@
+{
+ "tournament": {
+  "name": "FFISCIRMS",
+  "game": "ffindia",
+  "mode": "squad"
+ },
+ "config": {
+  "killPoints": 1,
+  "placementPoints": [
+   12,
+   9,
+   8,
+   7,
+   6,
+   5,
+   4,
+   3,
+   2,
+   1,
+   0,
+   0
+  ],
+  "tiebreak": [
+   "totalPts",
+   "killPts",
+   "booyahs",
+   "latestBestRank"
+  ]
+ },
+ "teams": [
+  {
+   "slot": 1,
+   "name": "MIDDLE CLASS",
+   "players": [
+    "MCS-MADHAN25",
+    "GK.CR7",
+    "MCS-KISHORE28",
+    "TGB BIGIL"
+   ]
+  },
+  {
+   "slot": 2,
+   "name": "REVEN ES",
+   "players": [
+    "RS DANGER",
+    "RS WHITE",
+    "RS VISHAL",
+    "VASANTH 00"
+   ]
+  },
+  {
+   "slot": 3,
+   "name": "TAMIL GAMING",
+   "players": [
+    "MANO",
+    "SRIRAM",
+    "ASHWIN",
+    "TG KOMBAN"
+   ]
+  },
+  {
+   "slot": 4,
+   "name": "MISTY",
+   "players": [
+    "MT MADHU",
+    "MT NAVEEN",
+    "JAGAN.OP",
+    "MT HARISH"
+   ]
+  },
+  {
+   "slot": 5,
+   "name": "TEAM POISON",
+   "players": [
+    "MEET NAVEEN",
+    "TN SANJAY",
+    "PRATHEEP",
+    "ABINESH"
+   ]
+  },
+  {
+   "slot": 6,
+   "name": "MID CLAW",
+   "players": [
+    "MCW-HARI",
+    "MCW-HAWK",
+    "BW.FLASH",
+    "MCW.PARTHA"
+   ]
+  },
+  {
+   "slot": 7,
+   "name": "MIT FINGER",
+   "players": [
+    "MF MITHUN333",
+    "DARK LORD",
+    "TAMILN BHUVI",
+    "MF BLACK-999"
+   ]
+  },
+  {
+   "slot": 8,
+   "name": "RULE BREAKERS",
+   "players": [
+    "RBZ BIRIYANI",
+    "ROYAL MD",
+    "MARANAVASAL",
+    "BK OBAMA"
+   ]
+  },
+  {
+   "slot": 9,
+   "name": "FFBLOODS",
+   "players": [
+    "BADBOY YT",
+    "FFB SANDY",
+    "FFB ARUN",
+    "FFB XLR8"
+   ]
+  },
+  {
+   "slot": 10,
+   "name": "DEVIL EATERS",
+   "players": [
+    "AG VASTHU",
+    "DE GAAMA",
+    "THE EVIL SR",
+    "DE MATHI TN"
+   ]
+  },
+  {
+   "slot": 11,
+   "name": "BLOOD PRONE",
+   "players": [
+    "BP PIRATE 31",
+    "BP MATHAN 33",
+    "BP-ROTRIX-CR",
+    "JSW SINGAM"
+   ]
+  }
+ ],
+ "matches": [
+  {
+   "number": 1,
+   "source": "screenshot",
+   "status": "confirmed",
+   "rows": [
+    {
+     "rank": 1,
+     "team": "REVEN ES",
+     "players": [
+      {
+       "player": "RS DANGER",
+       "kills": 1
+      },
+      {
+       "player": "RS WHITE",
+       "kills": 5
+      },
+      {
+       "player": "RS VISHAL",
+       "kills": 1
+      },
+      {
+       "player": "VASANTH 00",
+       "kills": 1
+      }
+     ]
+    },
+    {
+     "rank": 2,
+     "team": "TEAM POISON",
+     "players": [
+      {
+       "player": "MEET NAVEEN",
+       "kills": 2
+      },
+      {
+       "player": "TN SANJAY",
+       "kills": 1
+      },
+      {
+       "player": "PRATHEEP",
+       "kills": 0
+      },
+      {
+       "player": "ABINESH",
+       "kills": 6
+      }
+     ]
+    },
+    {
+     "rank": 3,
+     "team": "MIDDLE CLASS",
+     "players": [
+      {
+       "player": "MCS-MADHAN25",
+       "kills": 2
+      },
+      {
+       "player": "GK.CR7",
+       "kills": 3
+      },
+      {
+       "player": "MCS-KISHORE28",
+       "kills": 0
+      },
+      {
+       "player": "TGB BIGIL",
+       "kills": 1
+      }
+     ]
+    },
+    {
+     "rank": 4,
+     "team": "MID CLAW",
+     "players": [
+      {
+       "player": "MCW-HARI",
+       "kills": 1
+      },
+      {
+       "player": "MCW-HAWK",
+       "kills": 1
+      },
+      {
+       "player": "BW.FLASH",
+       "kills": 0
+      },
+      {
+       "player": "MCW.PARTHA",
+       "kills": 0
+      }
+     ]
+    },
+    {
+     "rank": 5,
+     "team": "TAMIL GAMING",
+     "players": [
+      {
+       "player": "MANO",
+       "kills": 0
+      },
+      {
+       "player": "SRIRAM",
+       "kills": 0
+      },
+      {
+       "player": "ASHWIN",
+       "kills": 0
+      },
+      {
+       "player": "TG KOMBAN",
+       "kills": 1
+      }
+     ]
+    },
+    {
+     "rank": 6,
+     "team": "MIT FINGER",
+     "players": [
+      {
+       "player": "MF MITHUN333",
+       "kills": 0
+      },
+      {
+       "player": "DARK LORD",
+       "kills": 1
+      },
+      {
+       "player": "TAMILN BHUVI",
+       "kills": 2
+      },
+      {
+       "player": "MF BLACK-999",
+       "kills": 2
+      }
+     ]
+    },
+    {
+     "rank": 7,
+     "team": "RULE BREAKERS",
+     "players": [
+      {
+       "player": "RBZ BIRIYANI",
+       "kills": 3
+      },
+      {
+       "player": "ROYAL MD",
+       "kills": 1
+      },
+      {
+       "player": "MARANAVASAL",
+       "kills": 0
+      },
+      {
+       "player": "BK OBAMA",
+       "kills": 0
+      }
+     ]
+    },
+    {
+     "rank": 8,
+     "team": "MISTY",
+     "players": [
+      {
+       "player": "MT MADHU",
+       "kills": 1
+      },
+      {
+       "player": "MT NAVEEN",
+       "kills": 2
+      },
+      {
+       "player": "JAGAN.OP",
+       "kills": 1
+      },
+      {
+       "player": "MT HARISH",
+       "kills": 0
+      }
+     ]
+    },
+    {
+     "rank": 9,
+     "team": "FFBLOODS",
+     "players": [
+      {
+       "player": "BADBOY YT",
+       "kills": 2
+      },
+      {
+       "player": "FFB SANDY",
+       "kills": 0
+      },
+      {
+       "player": "FFB ARUN",
+       "kills": 0
+      },
+      {
+       "player": "FFB XLR8",
+       "kills": 0
+      }
+     ]
+    },
+    {
+     "rank": 10,
+     "team": "DEVIL EATERS",
+     "players": [
+      {
+       "player": "AG VASTHU",
+       "kills": 0
+      },
+      {
+       "player": "DE GAAMA",
+       "kills": 0
+      },
+      {
+       "player": "THE EVIL SR",
+       "kills": 0
+      },
+      {
+       "player": "DE MATHI TN",
+       "kills": 0
+      }
+     ]
+    },
+    {
+     "rank": 11,
+     "team": "BLOOD PRONE",
+     "players": [
+      {
+       "player": "BP PIRATE 31",
+       "kills": 0
+      },
+      {
+       "player": "BP MATHAN 33",
+       "kills": 0
+      },
+      {
+       "player": "BP-ROTRIX-CR",
+       "kills": 0
+      },
+      {
+       "player": "JSW SINGAM",
+       "kills": 0
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
