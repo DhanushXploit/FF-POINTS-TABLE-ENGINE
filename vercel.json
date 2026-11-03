@@ -1,1 +1,1 @@
-{"cleanUrls":true,"framework":null,"outputDirectory":"public"}
+{"cleanUrls":true,"framework":null,"functions":{"api/analyze-screenshot.js":{"maxDuration":60}},"outputDirectory":"public"}

@@ -10,7 +10,32 @@
 // that hash in the x-admin-hash header. Without it, a non-empty hash header
 // is still required (the app's logged-in state), which keeps casual abuse out.
 
-const MODEL = process.env.VISION_MODEL || "gemini-3.8-flash";
+// Free-tier models, tried in order: if one is overloaded (503/429) or
+// unavailable to the key (404), the next is tried automatically.
+const MODELS = [...new Set([process.env.VISION_MODEL, "gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite"].filter(Boolean))];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function callGemini(key, model, prompt, mimeType, imageBase64) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 45000);
+  try {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+      method: "POST",
+      signal: ctrl.signal,
+      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: imageBase64 } }] }],
+        generationConfig: { temperature: 0, responseMimeType: "application/json" },
+      }),
+    });
+    if (!r.ok) { let detail = ""; try { const eb = await r.json(); detail = (eb && eb.error && eb.error.message) || ""; } catch (e) {} return { ok: false, status: r.status, detail: String(detail).slice(0, 240) }; }
+    return { ok: true, gem: await r.json() };
+  } catch (e) {
+    return { ok: false, unreachable: true, status: 0, detail: "" };
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 function send(res, code, obj) {
   res.statusCode = code;
@@ -65,25 +90,21 @@ module.exports = async (req, res) => {
 
   const prompt = buildPrompt(lineup, String(body.mode || ""));
 
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 60000);
-  let gem;
-  try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`, {
-      method: "POST",
-      signal: ctrl.signal,
-      headers: { "Content-Type": "application/json", "x-goog-api-key": key },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }, { inline_data: { mime_type: mimeType, data: imageBase64 } }] }],
-        generationConfig: { temperature: 0, responseMimeType: "application/json" },
-      }),
-    });
-    if (!r.ok) { let detail = ""; try { const eb = await r.json(); detail = (eb && eb.error && eb.error.message) || ""; } catch (e) {} return send(res, 502, { error: "vision_failed", status: r.status, detail: String(detail).slice(0, 240) }); }
-    gem = await r.json();
-  } catch (e) {
-    return send(res, 502, { error: "vision_unreachable" });
-  } finally {
-    clearTimeout(timer);
+  let gem = null, usedModel = null, lastFail = null, fatal = false;
+  for (const model of MODELS) {
+    if (gem || fatal) break;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const out = await callGemini(key, model, prompt, mimeType, imageBase64);
+      if (out.ok) { gem = out.gem; usedModel = model; break; }
+      lastFail = out;
+      if (out.status === 400 || out.status === 401 || out.status === 403) { fatal = true; break; }
+      if (attempt === 0 && (out.status === 429 || out.status === 503)) await sleep(1500);
+      else break;
+    }
+  }
+  if (!gem) {
+    if (lastFail && lastFail.unreachable) return send(res, 502, { error: "vision_unreachable" });
+    return send(res, 502, { error: "vision_failed", status: lastFail ? lastFail.status : 0, detail: lastFail ? lastFail.detail : "" });
   }
 
   const text = (((gem || {}).candidates || [])[0] || {}).content?.parts?.map((p) => p.text || "").join("") || "";
@@ -106,6 +127,6 @@ module.exports = async (req, res) => {
     is_result_screen: parsed.is_result_screen === true,
     rows,
     notes: String(parsed.notes || ""),
-    model: MODEL,
+    model: usedModel,
   });
 };
