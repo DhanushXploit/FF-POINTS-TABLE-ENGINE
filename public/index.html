@@ -310,11 +310,12 @@ function registryTab(t) {
     <label>Players (${n} for ${esc(MODE_LABEL[t.mode])}, one per line)</label><textarea id="tmPlayers" placeholder="Player 1&#10;Player 2"></textarea>
     <button id="tmAdd" style="width:100%;margin-top:10px">Add team</button></div>
   <div class="card"><h3>Paste / CSV import</h3>
-    <p class="small mut">One team per line, in this format:<br><code>Team Name | player1, player2, player3, player4</code><br>Slots are assigned in order, continuing from the current teams.</p>
+    <p class="small mut">One team per line, in this format:<br><code>Team Name | player1, player2, player3, player4</code><br>Slots are assigned in order, continuing from the current teams.<br>Or paste a full CSV — the Astro Esports Registrations sheet export and the <code>team,slot,player,uid</code> format are both detected automatically, keeping the sheet's slot numbers.</p>
     <textarea id="impText" placeholder="TEAM ALPHA | A1, A2, A3, A4&#10;TEAM BRAVO | B1, B2, B3, B4"></textarea>
     <button id="impGo" class="sec" style="width:100%;margin-top:10px">Import teams</button></div>`;
 }
 function parsePlayers(text, n) { return text.split(/[\n,]/).map((s) => s.trim()).filter(Boolean).slice(0, n); }
+function parseCSV(text) { const rows = []; let row = [], cur = "", q = false; for (let i = 0; i < text.length; i++) { const c = text[i]; if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; } else if (c === '"') q = true; else if (c === ",") { row.push(cur); cur = ""; } else if (c === "\n") { row.push(cur); rows.push(row); row = []; cur = ""; } else if (c !== "\r") cur += c; } if (cur !== "" || row.length) { row.push(cur); rows.push(row); } return rows; }
 function bindRegistry(t) {
   const n = PLAYERS_PER_MODE[t.mode];
   document.getElementById("tmAdd").onclick = () => {
@@ -325,13 +326,30 @@ function bindRegistry(t) {
   };
   document.getElementById("impGo").onclick = () => {
     if (!ensureAdmin()) return;
-    let added = 0;
-    for (const line of document.getElementById("impText").value.split("\n")) {
-      const [nm, pl] = line.split("|"); if (!nm || !pl) continue;
-      const players = parsePlayers(pl, n); if (players.length !== n) continue;
-      t.teams.push({ id: uid("team"), slot: t.teams.length + 1, name: nm.trim(), players }); added++;
+    const raw = document.getElementById("impText").value;
+    const csvRows = parseCSV(raw).filter((r) => r.some((c) => c.trim() !== ""));
+    const header = csvRows.length ? csvRows[0].map((h) => h.trim().toLowerCase()) : [];
+    let added = 0, skipped = 0;
+    const addTeam = (name, slot, players) => { if (!name || players.length !== n) { skipped++; return; } if (t.teams.some((x) => x.name.toLowerCase() === name.toLowerCase())) { skipped++; return; } t.teams.push({ id: uid("team"), slot: slot || (t.teams.length + 1), name, players }); added++; };
+    if (header.includes("team name") && header.includes("slot no")) {
+      const gi = (label) => header.indexOf(label);
+      for (const r of csvRows.slice(1)) {
+        const players = [1, 2, 3, 4].map((k) => (r[gi(`p${k} name`)] || "").trim()).filter(Boolean);
+        addTeam((r[gi("team name")] || "").trim(), Number(r[gi("slot no")]) || null, players);
+      }
+    } else if (header[0] === "team" && header.includes("player")) {
+      const groups = new Map();
+      for (const r of csvRows.slice(1)) {
+        const nm = (r[0] || "").trim(); const pl = (r[2] || "").trim(); if (!nm || !pl) continue;
+        const slot = Number(r[1]) || null; const key = nm.toLowerCase() + "|" + slot;
+        if (!groups.has(key)) groups.set(key, { name: nm, slot, players: [] });
+        groups.get(key).players.push(pl);
+      }
+      for (const g of groups.values()) addTeam(g.name, g.slot, g.players.slice(0, n));
+    } else {
+      for (const line of raw.split("\n")) { const [nm, pl] = line.split("|"); if (!nm || !pl) continue; addTeam(nm.trim(), null, parsePlayers(pl, n)); }
     }
-    save(); alert(added ? `Imported ${added} team(s).` : "No valid lines found. Use: Team Name | player1, player2, ..."); render();
+    save(); alert(added ? `Imported ${added} team(s).` + (skipped ? ` Skipped ${skipped} row(s) — wrong player count for this mode, or team already exists.` : "") : "No valid teams found. Use the Astro Registrations CSV, the team,slot,player,uid CSV, or: Team Name | player1, player2, ..."); render();
   };
   app().querySelectorAll("[data-delt]").forEach((b) => b.onclick = () => { if (!ensureAdmin()) return; if (confirm("Delete this team from the registry? Confirmed match rows keep their recorded names.")) { t.teams = t.teams.filter((x) => x.id !== b.dataset.delt); save(); render(); } });
   app().querySelectorAll("[data-edt]").forEach((b) => b.onclick = () => {
