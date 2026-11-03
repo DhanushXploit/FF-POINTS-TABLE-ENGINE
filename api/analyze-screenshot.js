@@ -78,7 +78,7 @@ module.exports = async (req, res) => {
         generationConfig: { temperature: 0, responseMimeType: "application/json" },
       }),
     });
-    if (!r.ok) return send(res, 502, { error: "vision_failed", status: r.status });
+    if (!r.ok) { let detail = ""; try { const eb = await r.json(); detail = (eb && eb.error && eb.error.message) || ""; } catch (e) {} return send(res, 502, { error: "vision_failed", status: r.status, detail: String(detail).slice(0, 240) }); }
     gem = await r.json();
   } catch (e) {
     return send(res, 502, { error: "vision_unreachable" });

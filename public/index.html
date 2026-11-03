@@ -537,7 +537,7 @@ async function analyzeScreenshot(t, m) {
   try {
     const r = await fetch("/api/analyze-screenshot", { method: "POST", headers: { "Content-Type": "application/json", "x-admin-hash": DB.passcodeHash || "" }, body: JSON.stringify({ imageBase64: parts.slice(1).join(","), mimeType, lineup, mode: t.mode }) });
     data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+    if (!r.ok) throw new Error([data.error || ("HTTP " + r.status), data.status, data.detail].filter(Boolean).join(" — "));
   } catch (e) {
     const notCfg = String(e.message).includes("not_configured");
     setMsg(`<div class="err">${notCfg ? "Screenshot analysis is not set up on this deployment yet — add VISION_API_KEY in Vercel → Settings → Environment Variables, then redeploy. Manual entry below still works." : "Screenshot reading failed (" + esc(e.message) + ") — the screenshot is saved; enter the numbers manually."}</div>`);
