@@ -311,7 +311,7 @@ function registryTab(t) {
     <button id="tmAdd" style="width:100%;margin-top:10px">Add team</button></div>
   <div class="card"><h3>Paste / CSV import</h3>
     <p class="small mut">One team per line, in this format:<br><code>Team Name | player1, player2, player3, player4</code><br>Slots are assigned in order, continuing from the current teams.<br>Or paste a full CSV — the Astro Esports Registrations sheet export and the <code>team,slot,player,uid</code> format are both detected automatically, keeping the sheet's slot numbers.</p>
-    <textarea id="impText" placeholder="TEAM ALPHA | A1, A2, A3, A4&#10;TEAM BRAVO | B1, B2, B3, B4"></textarea>
+    <textarea id="impText" placeholder="TEAM ALPHA | A1, A2, A3, A4&#10;TEAM BRAVO | B1, B2, B3, B4&#10;&#10;…or drag & drop a .csv file here"></textarea>
     <button id="impGo" class="sec" style="width:100%;margin-top:10px">Import teams</button></div>`;
 }
 function parsePlayers(text, n) { return text.split(/[\n,]/).map((s) => s.trim()).filter(Boolean).slice(0, n); }
@@ -351,6 +351,10 @@ function bindRegistry(t) {
     }
     save(); alert(added ? `Imported ${added} team(s).` + (skipped ? ` Skipped ${skipped} row(s) — wrong player count for this mode, or team already exists.` : "") : "No valid teams found. Use the Astro Registrations CSV, the team,slot,player,uid CSV, or: Team Name | player1, player2, ..."); render();
   };
+  const impEl = document.getElementById("impText");
+  impEl.addEventListener("dragover", (e) => { e.preventDefault(); impEl.style.borderColor = "var(--org)"; });
+  impEl.addEventListener("dragleave", () => { impEl.style.borderColor = ""; });
+  impEl.addEventListener("drop", async (e) => { e.preventDefault(); impEl.style.borderColor = ""; const f = e.dataTransfer.files && e.dataTransfer.files[0]; if (!f) return; impEl.value = await f.text(); alert(`Loaded "${f.name}" — tap Import teams to add them.`); });
   app().querySelectorAll("[data-delt]").forEach((b) => b.onclick = () => { if (!ensureAdmin()) return; if (confirm("Delete this team from the registry? Confirmed match rows keep their recorded names.")) { t.teams = t.teams.filter((x) => x.id !== b.dataset.delt); save(); render(); } });
   app().querySelectorAll("[data-edt]").forEach((b) => b.onclick = () => {
     if (!ensureAdmin()) return;
