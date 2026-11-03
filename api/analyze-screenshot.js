@@ -10,7 +10,7 @@
 // that hash in the x-admin-hash header. Without it, a non-empty hash header
 // is still required (the app's logged-in state), which keeps casual abuse out.
 
-const MODEL = process.env.VISION_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.VISION_MODEL || "gemini-3.8-flash";
 
 function send(res, code, obj) {
   res.statusCode = code;
