@@ -255,26 +255,84 @@ function bindTable(t) {
 }
 function makePoster(t) {
   const st = currentStandings(t);
-  const W = 900, rowH = 44, H = 150 + Math.max(1, st.length) * rowH + 30;
+  const filterLabel = ui.filter === "overall" ? "OVERALL" : "MATCH " + ui.filter;
+  const fragMatches = ui.filter === "overall" ? t.matches : t.matches.filter((m) => m.number === Number(ui.filter));
+  const frag = topFraggers(fragMatches.map((m) => ({ ...m, rows: m.rows.map((r) => ({ ...r, teamName: r.teamName || teamName(t, r.teamId) })) })), 5);
+  const W = 1080, MX = 44;
+  const headH = 168, titleY = headH + 78, colY = titleY + 52;
+  const rowH = 66, rowGap = 10;
+  const rowsH = Math.max(1, st.length) * (rowH + rowGap);
+  const fragHeadY = colY + 26 + rowsH + 56;
+  const fragRowH = 46;
+  const H = frag.length ? fragHeadY + 34 + frag.length * fragRowH + 44 : fragHeadY + 10;
   const c = document.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
-  x.fillStyle = "#0a1128"; x.fillRect(0, 0, W, H);
-  x.fillStyle = "#ff7a00"; x.fillRect(0, 0, W, 86);
-  x.fillStyle = "#16100a"; x.font = "900 34px system-ui,sans-serif"; x.fillText(t.name, 28, 40);
-  x.font = "700 19px system-ui,sans-serif"; x.fillText((GAME_LABEL[t.game] || "") + " • " + (MODE_LABEL[t.mode] || "") + " • Points Table", 28, 68);
-  x.fillStyle = "#9aa7d4"; x.font = "700 16px system-ui,sans-serif";
-  const cols = [[28, "Rank"], [100, "Team"], [520, "Matches"], [620, "Booyahs"], [710, "Kill Pts"], [800, "Total"]];
-  cols.forEach(([cx, s]) => x.fillText(s, cx, 118));
+  const NAVY = "#070d24", BAND = "#101a3d", ORANGE = "#ff7a00", GOLD = "#ffd34d", INK = "#eef1ff", MUT = "#8fa0cf";
+  // background + subtle grid
+  x.fillStyle = NAVY; x.fillRect(0, 0, W, H);
+  x.strokeStyle = "rgba(96,128,230,0.07)"; x.lineWidth = 1; x.beginPath();
+  for (let gx = 0; gx <= W; gx += 54) { x.moveTo(gx + 0.5, 0); x.lineTo(gx + 0.5, H); }
+  for (let gy = 0; gy <= H; gy += 54) { x.moveTo(0, gy + 0.5); x.lineTo(W, gy + 0.5); }
+  x.stroke();
+  // orange header with angled bottom-right corner
+  x.fillStyle = ORANGE; x.beginPath();
+  x.moveTo(0, 0); x.lineTo(W, 0); x.lineTo(W, headH - 44); x.lineTo(W - 300, headH); x.lineTo(0, headH); x.closePath(); x.fill();
+  x.fillStyle = "#0d0d0f"; x.textAlign = "left"; x.textBaseline = "alphabetic";
+  x.font = "900 62px system-ui,sans-serif";
+  x.fillText(fitText(x, t.name.toUpperCase(), W - MX * 2), MX, 78);
+  x.font = "800 27px system-ui,sans-serif";
+  x.fillText(((GAME_LABEL[t.game] || "") + " • " + (MODE_LABEL[t.mode] || "")).toUpperCase(), MX, 126);
+  // section title + filter label
+  x.fillStyle = INK; x.font = "900 44px system-ui,sans-serif"; x.fillText("POINTS TABLE", MX, titleY);
+  x.fillStyle = MUT; x.font = "800 25px system-ui,sans-serif"; x.textAlign = "right"; x.fillText(filterLabel, W - MX, titleY - 20);
+  x.textAlign = "left";
+  // columns: # TEAM M B PLAC KILL TOTAL
+  const colX = { m: 694, b: 758, plac: 830, kill: 916, total: 986 };
+  x.fillStyle = MUT; x.font = "800 21px system-ui,sans-serif";
+  x.fillText("#", MX + 16, colY); x.fillText("TEAM", 168, colY);
+  x.textAlign = "center";
+  x.fillText("M", colX.m, colY); x.fillText("B", colX.b, colY); x.fillText("PLAC", colX.plac, colY); x.fillText("KILL", colX.kill, colY);
+  x.fillText("TOTAL", colX.total, colY);
+  x.textAlign = "left";
+  // rows
   st.forEach((s, i) => {
-    const y = 150 + i * rowH;
-    if (i < 3) { x.fillStyle = "#ffd34d"; } else { x.fillStyle = "#eef1ff"; }
-    x.font = (i < 3 ? "900" : "600") + " 20px system-ui,sans-serif";
-    x.fillText(String(s.standing), 28, y); x.fillText(s.name, 100, y);
-    x.fillText(String(s.matches), 520, y); x.fillText(String(s.booyahs), 620, y); x.fillText(String(s.killPts), 710, y); x.fillText(String(s.totalPts), 800, y);
-    x.fillStyle = "#26356b"; x.fillRect(28, y + 10, W - 56, 1);
+    const ry = colY + 26 + i * (rowH + rowGap);
+    x.fillStyle = BAND;
+    if (x.roundRect) { x.beginPath(); x.roundRect(MX - 6, ry, W - MX * 2 + 12, rowH, 8); x.fill(); } else x.fillRect(MX - 6, ry, W - MX * 2 + 12, rowH);
+    if (i === 0) { x.fillStyle = ORANGE; x.fillRect(MX - 14, ry, 6, rowH); }
+    // slanted rank chip
+    const cx0 = MX + 8, cy0 = ry + 13, cw = 62, chh = 40;
+    x.fillStyle = i < 3 ? GOLD : "#2a3a6e";
+    x.beginPath(); x.moveTo(cx0 + 10, cy0); x.lineTo(cx0 + cw, cy0); x.lineTo(cx0 + cw - 12, cy0 + chh); x.lineTo(cx0 - 2, cy0 + chh); x.closePath(); x.fill();
+    x.fillStyle = i < 3 ? "#16100a" : INK; x.font = "900 24px system-ui,sans-serif"; x.textAlign = "center";
+    x.fillText(String(s.standing), cx0 + cw / 2 - 1, cy0 + 29);
+    x.textAlign = "left";
+    x.fillStyle = INK; x.font = "800 27px system-ui,sans-serif";
+    x.fillText(fitText(x, s.name.toUpperCase(), 470), 168, ry + 42);
+    x.font = "700 25px system-ui,sans-serif"; x.fillStyle = "#c6d0f2"; x.textAlign = "center";
+    x.fillText(String(s.matches), colX.m, ry + 42); x.fillText(String(s.booyahs), colX.b, ry + 42);
+    x.fillText(String(s.placementPts), colX.plac, ry + 42); x.fillText(String(s.killPts), colX.kill, ry + 42);
+    x.fillStyle = ORANGE; x.font = "900 29px system-ui,sans-serif";
+    x.fillText(String(s.totalPts), colX.total, ry + 42);
+    x.textAlign = "left";
   });
-  if (!st.length) { x.fillStyle = "#eef1ff"; x.font = "600 20px system-ui,sans-serif"; x.fillText("No confirmed matches yet.", 28, 160); }
+  if (!st.length) { x.fillStyle = INK; x.font = "600 22px system-ui,sans-serif"; x.fillText("No confirmed matches yet.", MX, colY + 70); }
+  // top fraggers
+  if (frag.length) {
+    x.fillStyle = INK; x.font = "900 34px system-ui,sans-serif"; x.fillText("TOP FRAGGERS", MX, fragHeadY);
+    frag.forEach((f, i) => {
+      const fy = fragHeadY + 34 + i * fragRowH + 12;
+      x.fillStyle = i === 0 ? ORANGE : MUT; x.font = "900 24px system-ui,sans-serif";
+      x.fillText((i + 1) + ".", MX, fy);
+      x.fillStyle = "#c6d0f2"; x.font = "700 24px system-ui,sans-serif";
+      x.fillText(fitText(x, (f.player + (f.team ? " (" + f.team + ")" : "")).toUpperCase(), 640), MX + 58, fy);
+      x.fillStyle = ORANGE; x.font = "800 24px system-ui,sans-serif"; x.textAlign = "right";
+      x.fillText(f.kills + (f.kills === 1 ? " kill" : " kills"), W - MX, fy);
+      x.textAlign = "left";
+    });
+  }
   return c.toDataURL("image/png");
 }
+function fitText(x, s, maxW) { if (x.measureText(s).width <= maxW) return s; let out = s; while (out.length > 1 && x.measureText(out + "…").width > maxW) out = out.slice(0, -1); return out + "…"; }
 
 // ---------- matches list ----------
 function matchesTab(t) {
