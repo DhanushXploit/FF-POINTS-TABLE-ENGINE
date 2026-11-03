@@ -143,7 +143,7 @@ function openAuth() {
 }
 
 // ---------- UI state / helpers ----------
-let ui = { tournamentId: null, tab: "table", matchId: null, layout: "placement", showReview: false, filter: "overall", expanded: null, posterUrl: null };
+let ui = { tournamentId: null, tab: "table", matchId: null, layout: "placement", showReview: false, filter: "overall", expanded: null, posterUrl: null, shotMsg: "" };
 const GAME_LABEL = { ffmax: "Free Fire MAX", ffindia: "Free Fire India" };
 const MODE_LABEL = { squad: "Squad", duo: "Duo", solo: "Solo" };
 const app = () => document.getElementById("app");
@@ -493,8 +493,8 @@ function renderMatchEditor(t) {
       <p class="tiny mut">Untick a no-show team, and edit player names for substitutes — this lineup is only for this match.</p></div>
     <div class="card"><h3>Result screenshot (optional)</h3>
       <input type="file" id="shotFile" accept="image/*">
-      ${m.image ? `<img class="shot" src="${m.image}" alt="Result screenshot" style="margin-top:10px"><button id="shotDel" class="sec small" style="margin-top:8px">Remove screenshot</button>` : ""}
-      <p class="small mut">Screenshots are stored with the match for reference. Automatic screenshot reading needs the Muse app or a future API key — this standalone copy does not read the image, so enter the numbers below (you are never blocked).</p></div>
+      ${m.image ? `<img class="shot" src="${m.image}" alt="Result screenshot" style="margin-top:10px"><div class="row" style="margin-top:8px"><button id="shotAnalyze" class="grow">Analyze screenshot with AI</button><button id="shotDel" class="sec small">Remove screenshot</button></div><div id="shotMsg" style="margin-top:8px">${ui.shotMsg || ""}</div>` : ""}
+      <p class="small mut">Attach the result screenshot, then tap Analyze — Gemini reads the ranks and kills and fills the form below for you to review and confirm. Reading needs the free Gemini key set up on this deployment (VISION_API_KEY in Vercel); without it, manual entry below always works.</p></div>
     <div class="row"><button data-layout="placement" class="${ui.layout === "placement" ? "" : "sec"} grow">By placement</button>
       <button data-layout="team" class="${ui.layout === "team" ? "" : "sec"} grow">By team</button></div>
     <div style="margin-top:10px">${ui.layout === "placement" ? placementRows.join("") : teamCards.join("")}</div>
@@ -517,6 +517,49 @@ function killInputs(m, lu) {
   const e = m.entries[lu.teamId] || { kills: lu.players.map(() => 0) };
   return lu.players.map((p, i) => `<div class="krow"><span class="pname">${esc(p)}</span><span class="small mut">Kills</span>
     <input class="kill" type="number" inputmode="numeric" min="0" max="30" data-kill="${lu.teamId}:${i}" value="${e.kills[i] ?? 0}"></div>`).join("");
+}
+function normName(s) { return String(s || "").toUpperCase().replace(/[^A-Z0-9]+/g, " ").trim().replace(/\s+/g, " "); }
+function levDist(a, b) { const m2 = a.length, n2 = b.length; if (!m2) return n2; if (!n2) return m2; let prev = Array.from({ length: n2 + 1 }, (_, j) => j); for (let i = 1; i <= m2; i++) { const cur = [i]; for (let j = 1; j <= n2; j++) cur.push(Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1))); prev = cur; } return prev[n2]; }
+function nameScore(a, b) { const x = normName(a), y = normName(b); if (!x || !y) return 0; if (x === y) return 1; if (x.replace(/ /g, "") === y.replace(/ /g, "")) return 0.97; return 1 - levDist(x, y) / Math.max(x.length, y.length); }
+function bestMatchName(seen, candidates) { let best = null, score = 0; for (const c of candidates) { const s = nameScore(seen, c); if (s > score) { score = s; best = c; } } return score >= 0.6 ? best : null; }
+async function analyzeScreenshot(t, m) {
+  const msgEl = document.getElementById("shotMsg");
+  const setMsg = (html) => { ui.shotMsg = html; if (msgEl) msgEl.innerHTML = html; };
+  if (!m.image) return;
+  setMsg(`<div class="warn">Reading screenshot… matching names against the lineup.</div>`);
+  const hash = await sha256(m.image);
+  m.imageHashes = m.imageHashes || [];
+  if (m.imageHashes.includes(hash)) { setMsg(`<div class="err">This exact screenshot was already analyzed for this match — duplicate rejected. Enter any missing numbers manually.</div>`); return; }
+  const lineup = m.lineup.filter((lu) => lu.in).map((lu) => ({ team: lu.name, players: lu.players }));
+  const parts = m.image.split(",");
+  const mimeType = ((parts[0].match(/data:([^;]+)/) || [])[1]) || "image/jpeg";
+  let data;
+  try {
+    const r = await fetch("/api/analyze-screenshot", { method: "POST", headers: { "Content-Type": "application/json", "x-admin-hash": DB.passcodeHash || "" }, body: JSON.stringify({ imageBase64: parts.slice(1).join(","), mimeType, lineup, mode: t.mode }) });
+    data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || ("HTTP " + r.status));
+  } catch (e) {
+    const notCfg = String(e.message).includes("not_configured");
+    setMsg(`<div class="err">${notCfg ? "Screenshot analysis is not set up on this deployment yet — add VISION_API_KEY in Vercel → Settings → Environment Variables, then redeploy. Manual entry below still works." : "Screenshot reading failed (" + esc(e.message) + ") — the screenshot is saved; enter the numbers manually."}</div>`);
+    return;
+  }
+  if (!data.is_result_screen) { setMsg(`<div class="err">This doesn't look like a Free Fire result screen${data.notes ? " — " + esc(data.notes) : ""}. Nothing was filled; use manual entry.</div>`); return; }
+  const usedTeams = new Set(); let filled = 0; const unmatched = [];
+  for (const row of data.rows || []) {
+    const luCandidates = m.lineup.filter((lu) => lu.in && !usedTeams.has(lu.teamId));
+    const teamName2 = bestMatchName(row.team, luCandidates.map((lu) => lu.name));
+    if (!teamName2) { unmatched.push(row.team); continue; }
+    const lu = luCandidates.find((x) => x.name === teamName2); usedTeams.add(lu.teamId);
+    const kills = lu.players.map((p) => { let bestK = null, bestS = 0; for (const rp of row.players || []) { const s = nameScore(rp.name, p); if (s > bestS) { bestS = s; bestK = rp.kills; } } return bestS >= 0.6 && Number.isInteger(bestK) ? bestK : 0; });
+    m.entries[lu.teamId] = { rank: row.rank, kills };
+    filled++;
+  }
+  m.imageHashes.push(hash);
+  if (filled) m.source = "screenshot";
+  save();
+  ui.shotMsg = filled ? `<div class="warn">Read ${filled} team(s) from the screenshot and filled them below — check every number in the review, then confirm.${unmatched.length ? " Could not match: " + unmatched.map(esc).join(", ") + " — enter those manually." : ""}</div>` : `<div class="err">The screenshot was read, but no team could be matched to the lineup. Enter the numbers manually.</div>`;
+  ui.showReview = true;
+  render();
 }
 function bindMatchEditor(t, m) {
   document.getElementById("mBack").onclick = () => { ui.matchId = null; ui.tab = "matches"; render(); };
@@ -548,8 +591,9 @@ function bindMatchEditor(t, m) {
     e.rank = v; save(); if (ui.showReview) document.getElementById("reviewBox").innerHTML = reviewHTML(t, m), bindConfirm(t, m);
   });
   const sf = document.getElementById("shotFile");
-  if (sf) sf.onchange = () => { const f = sf.files[0]; if (!f) return; storeImage(f, (url) => { m.image = url; m.source = "mixed"; save(); render(); }); };
-  const sd = document.getElementById("shotDel"); if (sd) sd.onclick = () => { m.image = null; save(); render(); };
+  if (sf) sf.onchange = () => { const f = sf.files[0]; if (!f) return; storeImage(f, (url) => { m.image = url; m.source = "mixed"; ui.shotMsg = ""; save(); render(); }); };
+  const sd = document.getElementById("shotDel"); if (sd) sd.onclick = () => { m.image = null; ui.shotMsg = ""; save(); render(); };
+  const sa = document.getElementById("shotAnalyze"); if (sa) sa.onclick = () => { if (!ensureAdmin()) return; analyzeScreenshot(t, m); };
   document.getElementById("reviewBtn").onclick = () => { ui.showReview = true; document.getElementById("reviewBox").innerHTML = reviewHTML(t, m); bindConfirm(t, m); };
   if (ui.showReview) bindConfirm(t, m);
   document.getElementById("delMatch").onclick = () => deleteMatch(t, m);
